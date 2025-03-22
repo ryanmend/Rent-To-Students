@@ -1,58 +1,95 @@
-<!-- Ryan Mendoza 100409153 -->
-
 <?php
-//db_connection.php
+
 require_once "db_connection.php";
+session_start();
 
-$servername = "localhost";
-$username = "root";
-$password = "2025Spring";
-$dbname = "item_rentlist";
-
-// Create connection
-$conn = new mysqli($servername, $username, $password, $dbname);
-
-// Check connection
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
+// Check if the user is logged in
+if (!isset($_SESSION['user_id'])) {
+    header("Location: login.php");
+    exit;
 }
 
-//$result = $conn->query("SELECT id, description, priority, deadline FROM items");
-?>
+$servername = ""; // Remove these, they are not needed as db_connection.php handles it
+$username = "";
+$password = "";
+$dbname = "";
 
-<?php
 // Initialize variables
-$itemId = $description = $priority = $deadline = "";
+$item_name = $description = $category = $rental_price = "";
 $isEdit = false;
+$errorMessage = "";
 
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["save_item"])) {
+    $item_name = $_POST["item_name"];
     $description = $_POST["description"];
-    $priority = $_POST["priority"];
-    $deadline = $_POST["deadline"];
-    $itemId = $_POST["item_id"]; // Fix: Fetch the correct item ID
+    $category = $_POST["category"];
+    $rental_price = $_POST["rental_price"];
 
-    if (!empty($itemId)) {
-        // Update existing item
-        $stmt = $conn->prepare(
-            "UPDATE items SET description = ?, priority = ?, deadline = ? WHERE id = ?"
-        );
-        $stmt->bind_param("sssi", $description, $priority, $deadline, $itemId);
-        $stmt->execute();
+    // Validate Input (Important!)
+    if (empty($item_name)) {
+        $errorMessage = "Item name is required.";
+    } elseif (!preg_match("/^[a-zA-Z0-9\s]{1,200}$/", $item_name)) {
+        $errorMessage = "Invalid characters in item name. Only letters, numbers and spaces are allowed.";
+    }
 
-        echo "<p>Task updated successfully!</p>";
-        header("Location: index.php"); // Redirect back after update
-        exit();
-    } else {
-        // Add new item
-        $stmt = $conn->prepare(
-            "INSERT INTO items (description, priority, deadline) VALUES (?, ?, ?)"
-        );
-        $stmt->bind_param("sss", $description, $priority, $deadline);
-        $stmt->execute();
+    if (empty($description)) {
+        $errorMessage .= "<br>Description is required.";
+    } elseif (!preg_match("/^[a-zA-Z0-9\s]{1,200}$/", $description)) {
+        $errorMessage .= "<br>Invalid characters in description. Only letters, numbers and spaces are allowed.";
+    }
 
-        echo "<p>Task added successfully!</p>";
-        header("Location: index.php");
-        exit();
+    if (empty($category)) {
+        $errorMessage .= "<br>Category is required.";
+    }
+
+    if (!is_numeric($rental_price) || $rental_price <= 0) {
+        $errorMessage .= "<br>Rental price must be a positive number.";
+    }
+
+
+    if ($errorMessage == "") {
+        try {
+            // Get the lessor_id from the session
+            $lessor_id = $_SESSION['user_id'];
+
+            // Determine if it's an update or insert
+            if (isset($_POST["item_id"]) && !empty($_POST["item_id"])) {
+                $itemId = (int)$_POST["item_id"]; // Get item ID for update
+
+                // Update existing item
+                $stmt = $conn->prepare(
+                    "UPDATE items SET item_name = ?, description = ?, category = ?, rental_price = ?, lessor_id = ? WHERE id = ?"
+                );
+                $stmt->bind_param("ssssii", $item_name, $description, $category, $rental_price, $lessor_id, $itemId);
+
+                if ($stmt->execute()) {
+                    echo "<p>Item updated successfully!</p>";
+                } else {
+                    $errorMessage = "Error updating item: " . $stmt->error;
+                }
+
+
+            } else {
+                // Add new item
+                $stmt = $conn->prepare(
+                    "INSERT INTO items (item_name, description, category, rental_price, lessor_id) VALUES (?, ?, ?, ?, ?)"
+                );
+                $stmt->bind_param("ssssi", $item_name, $description, $category, $rental_price, $lessor_id);
+
+                if ($stmt->execute()) {
+                    echo "<p>Item added successfully!</p>";
+                } else {
+                    $errorMessage = "Error adding item: " . $stmt->error;
+                }
+            }
+
+
+            header("Location: profile.php"); // Redirect after success
+            exit();
+
+        } catch (Exception $e) {
+            $errorMessage = "Error saving item: " . $e->getMessage();
+        }
     }
 }
 
@@ -62,30 +99,33 @@ if (
     isset($_GET["edit_item"]) &&
     isset($_GET["item_id"])
 ) {
-    $itemId = $_GET["item_id"];
+    $itemId = (int)$_GET["item_id"]; // Cast to integer for safety
+
     $stmt = $conn->prepare("SELECT * FROM items WHERE id = ?");
     $stmt->bind_param("i", $itemId);
     $stmt->execute();
     $result = $stmt->get_result();
 
     if ($item = $result->fetch_assoc()) {
+        $item_name = $item["item_name"];
         $description = $item["description"];
-        $priority = $item["priority"];
-        $deadline = $item["deadline"];
+        $category = $item["category"];
+        $rental_price = $item["rental_price"];
         $isEdit = true;
+    } else {
+        // Handle case where item is not found.  Important!
+        echo "<p>Error: Item not found.</p>";
     }
 }
 
-// Deleting a item
+// Deleting a item (No changes needed here)
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["delete_item"])) {
     $itemId = (int) $_POST["item_id"];
 
-    // Check if item id is valid
     if (empty($itemId)) {
-        die("<p>Error: Invalid Task ID received.</p>");
+        die("<p>Error: Invalid Item ID received.</p>");
     }
 
-    // Delete the item
     $stmt = $conn->prepare("DELETE FROM items WHERE id = ?");
     $stmt->bind_param("i", $itemId);
     $stmt->execute();
@@ -95,24 +135,22 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["delete_item"])) {
     }
 
     if ($stmt->affected_rows > 0) {
-        echo "<p>Task deleted successfully!</p>";
-        header("Location: index.php");
+        echo "<p>Item deleted successfully!</p>";
+        header("Location: profile.php");
         exit();
     } else {
-        die("<p>Error: Task not found.</p>");
+        die("<p>Error: Item not found.</p>");
     }
 }
 
-// Complete a item
+// Complete a item (No changes needed here)
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["complete_item"])) {
     $itemId = (int) $_POST["item_id"];
 
-    // Check if item id is valid
     if (empty($itemId)) {
-        die("<p>Error: Invalid Task ID received.</p>");
+        die("<p>Error: Invalid Item ID received.</p>");
     }
 
-    // Complete the item
     $stmt = $conn->prepare("DELETE FROM items WHERE id = ?");
     $stmt->bind_param("i", $itemId);
     $stmt->execute();
@@ -122,233 +160,53 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["complete_item"])) {
     }
 
     if ($stmt->affected_rows > 0) {
-        echo "<p>Task completed successfully!</p>";
-        header("Location: index.php");
+        echo "<p>Item completed successfully!</p>";
+        header("Location: profile.php");
         exit();
     } else {
-        die("<p>Error: Task not found.</p>");
+        die("<p>Error: Item not found.</p>");
     }
 }
 
-// Validated user input
-$errorMessage = "";
 
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // Get the form values
-    $description = trim($_POST["description"]);
-    $priority = $_POST["priority"];
-    $deadline = $_POST["deadline"];
-
-    // Validation for description
-    if (empty($description)) {
-        $errorMessage = "Task description is required";
-    } elseif (!preg_match("/^[a-zA-Z0-9\s]{1,200}$/", $description)) {
-        $errorMessage =
-            "Invalid characters in item description. Only letters, numbers and spaces are allowed.";
-    }
-
-    // If deadline is empty or invalid format
-    if (!isset($_POST["deadline"]) || $_POST["deadline"] < date("Y-m-d\TH:i")) {
-        $errorMessage = "Please select a valid deadline";
-    }
-
-    // If there are no errors, process the form and insert/update the item
-    if ($errorMessage == "") {
-        try {
-            // Your database insertion code here
-
-            echo "<div class='success-message'>Task successfully saved!</div>";
-        } catch (Exception $e) {
-            $errorMessage = "Error saving item: " . $e->getMessage();
-        }
-    }
-}
 ?>
 
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <title>Adding New Task</title>
-        <style>
-            body {
-                font-family: Arial, sans-serif;
-                background-color: #8395a7;
-                margin: 0;
-                padding: 0;
-                color: #333;
-                align-content: center;
-            }
+<html>
+<head>
+    <title>Add Item</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
 
-            h1, h2{
-                text-align: center;
-                color: #444;
-            }
+<h1>Item Management</h1>
 
-            table {
-                width: 80%;
-                margin: 20px auto;
-                border-collapse: collapse;
-                box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            }
-
-            table th, table td {
-                padding: 12px;
-                border: 1px solid #ddd;
-                text-align: center;
-            }
-
-            table th {
-                background-color: #f8f8f8;
-                color: #555;
-                font-weight: bold;
-            }
-
-            table tr:nth-child(even) {
-                background-color: #f9f9f9;
-            }
-
-            table tr:hover {
-                background-color: #f1f1f1;
-            }
-
-            form {
-                width: 60%;
-                margin: 20px auto;
-                padding: 20px;
-                border: 1px solid #ddd;
-                border-radius: 5px;
-                background-color: #fff;
-                box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            }
-
-            form label {
-                display: block;
-                margin-bottom: 8px;
-                font-weight: bold;
-            }
-
-            form input[type="textarea"],
-            form input[type="number"],
-            form input[type="file"] {
-                width: 100%;
-                padding: 10px;
-                margin-bottom: 10px;
-                border: 1px solid #ddd;
-                border-radius: 3px;
-            }
-
-            form button {
-                background-color: #28a745;
-                text-align: center;
-                text-align-all: center;
-                align-content: center;
-                width: 100%;
-                padding: 10px;
-                margin-bottom: 10px;
-                border: 1px solid #ddd;
-                border-radius: 3px;
-                cursor: pointer;
-            }
-
-            form button:hover {
-                background-color: #218838;
-            }
-
-            small {
-                display: block;
-                margin-top: 5px;
-                color: #888;
-            }
-
-            form button[type="submit"][name="delete_item"] {
-                background-color: #dc3545;
-                text-align: center;
-            }
-
-            form button[type="submit"][name="save_item"] {
-                text-align: center;
-                align-content: center;
-                padding: 10px 15px;
-                border: none;
-                border-radius: 3px;
-                cursor: pointer;
-            }
+<?php if ($errorMessage != ""): ?>
+    <div style="color: red;"><?php echo $errorMessage; ?></div>
+<?php endif; ?>
 
 
-            .error {
-                color: red;
-                padding: 10px;
-                margin-bottom: 20px;
-            }
+<form method="post" action="" <?php if($isEdit) echo "name='edit_item_form'" ?>>
+    <label for="item_name">Item Name:</label>
+    <input type="text" id="item_name" name="item_name" value="<?php echo htmlspecialchars($item_name); ?>"><br><br>
 
-            .success-message {
-                color: green;
-                padding: 10px;
-                background-color: #e8f5ff;
-                border: 1px solid #b2d7ff;
-                margin-bottom: 20px;
-            }
+    <label for="description">Description:</label>
+    <textarea id="description" name="description"><?php echo htmlspecialchars($description); ?></textarea><br><br>
 
-            p {
-                color: red;
-            }
+    <label for="category">Category:</label>
+    <input type="text" id="category" name="category" value="<?php echo htmlspecialchars($category); ?>"><br><br>
 
-        </style>
-    </head>
-    <body>
-        <?php
-        require_once "db_connection.php";
+    <label for="rental_price">Rental Price:</label>
+    <input type="number" id="rental_price" name="rental_price" step="0.01" min="0" value="<?php echo htmlspecialchars($rental_price); ?>"><br><br>
 
-        $itemId = $description = $priority = $deadline = "";
-        $isEdit = false;
+    <?php if ($isEdit): ?>
+        <input type="hidden" name="item_id" value="<?php echo $itemId; ?>">
+    <?php endif; ?>
 
-        if ($isEdit) {
-            echo "<h2>Edit Task</h2>";
-        } 
-        ?>
 
-        <form action="add_item.php" method="POST">
-            <input type="hidden" name="item_id" value="<?php echo htmlspecialchars(
-                $itemId
-            ); ?>">
-            <h1>Add Task</h1><br>
+    <button type="submit" name="save_item"><?php echo $isEdit ? 'Update Item' : 'Add Item'; ?></button>
+</form>
+    <p>Back to <a href="index.php">Home.</a></p>
 
-            <label for="description">Task Description:</label><br>
-            <input type="textarea" id="description" name="description" 
-                   value="<?php echo htmlspecialchars(
-                       $description
-                   ); ?>" required><br>
-
-            <label for="priority">Priority:</label><br>
-            <select name="priority">
-                <option value="Low" <?php if ($priority == "Low") {
-                    echo "selected";
-                } ?>>Low</option>
-                <option value="Medium" <?php if ($priority == "Medium") {
-                    echo "selected";
-                } ?>>Medium</option>
-                <option value="High" <?php if ($priority == "High") {
-                    echo "selected";
-                } ?>>High</option>
-            </select><br>
-            <br>
-            <label for="deadline">Deadline:</label><br>
-            <input type="datetime-local" id="deadline" name="deadline"
-                   value="<?php echo htmlspecialchars($deadline); ?>"><br>
-            <br>
-
-            <br><button type="submit" name="save_item" 
-                        <?php if (!empty($errorMessage)) { ?>disabled<?php } ?>>
-                        <?php if ($isEdit) {
-                            echo "Update Task";
-                        } else {
-                            echo "Add Task";
-                        } ?>
-            </button>
-
-            <a href="index.php" style="text-align-last: center; display: block;">Cancel</a>
-        </form>
-
-    </body>
+</body>
 </html>

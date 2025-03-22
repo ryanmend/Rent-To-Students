@@ -13,27 +13,28 @@ $error_message = ""; //initialize variable for error message
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     //initialize variables
-    $username = trim($_POST["username"]);
+    $email = trim($_POST["email"]);
     $password = $_POST["password"];
 
     // collect user input for login
-    $stmt = $conn->prepare("SELECT password FROM users WHERE username = ?");
+    $stmt = $conn->prepare("SELECT password, user_id FROM users WHERE email = ?");
     if (!$stmt) {
         die("Database error: " . $conn->error);
     }
-    $stmt->bind_param("s", $username);
+    $stmt->bind_param("s", $email);
     $stmt->execute();
-    $stmt->bind_result($db_password);
+    $stmt->bind_result($db_password, $user_id);
     $stmt->fetch();
     $stmt->close();
-    
+
     //compare data from user input to the database data
     if ($db_password && password_verify($password, $db_password)) {
-        $_SESSION["username"] = $username;
-        header("Location: dashboard.php");
+        $_SESSION["email"] = $email;
+        $_SESSION["user_id"] = $user_id; // Store user_id in session
+        header("Location: profile.php"); // Changed to redirect to profile.php
         exit();
     } else {
-        $error_message = "Invalid username or password.";
+        $error_message = "Invalid email or password.";
     }
 }
 ?>
@@ -43,12 +44,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login</title>
+    <title>Welcome To Rent-To-Students !!</title>
+    <?php include "navbar.php"; ?>
    <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-    <h2>Login</h2>
-    
+    <h2>Welcome to Rent-To-Students !!</h2>
+
     <?php if (!empty($error_message)): ?>
         <p style="color: red; text-align: center;"><?php echo htmlspecialchars(
             $error_message
@@ -56,15 +58,17 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     <?php endif; ?>
 
     <form method="POST" action="" autocomplete="off">
-        <label for="username">Username:</label>
-        <input type="text" id="username" name="username" required>
+        <label for="email">Enter School Email</label>
+        <input type="text" id="email" name="email" required>
 
-        <label for="password">Password:</label>
+        <label for="password">Enter Password</label>
         <input type="password" id="password" name="password" required>
-
-        <button class="blue-btn" "type="submit">Login</button>
+<div class="btn-container">
+        <button class="hollow-btn" type="submit">Sign In</button>
+        <button class="fill-btn" type="submit"><a class="signup" href="register.php">Sign Up</a></button>
+</div>
     </form>
 
-    <p>Don't have an account? <a href="step1.php">Register here</a>.</p>
+    <!--<p>Don't have an account? <a href="register.php">Register here</a>.</p>-->
 </body>
 </html>

@@ -19,66 +19,114 @@ if (!session_id()) {
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     // initialize session data
-    $name = $_POST["name"];
     $email = $_POST["email"];
+    $username = $_POST["username"];
+    $password = $_POST["password"];
 
     // validate inputs
-    if (empty($name) || empty($email)) {
+    if (empty($email) || empty($username) || empty($password)) {
         $error_message = "Please fill in all fields.";
     } else {
         // check if email already exists
-        $check_stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
-        $check_stmt->bind_param("s", $email);
-        $check_stmt->execute();
-        $check_stmt->store_result();
+        $check_email_stmt = $conn->prepare("SELECT user_id FROM users WHERE email = ?");
+        $check_email_stmt->bind_param("s", $email);
+        $check_email_stmt->execute();
+        $check_email_stmt->store_result();
 
-        if ($check_stmt->num_rows > 0) {
+        if ($check_email_stmt->num_rows > 0) {
             // email exists in db, show error message but stay in page
             $error_message = "Email already exist. Please login.";
         } else {
-            // email does not exist, store form data in the session
-            $_SESSION["name"] = $name;
-            $_SESSION["email"] = $email;
+            // check if username already exists
+            $check_username_stmt = $conn->prepare("SELECT user_id FROM users WHERE username = ?");
+            $check_username_stmt->bind_param("s", $username);
+            $check_username_stmt->execute();
+            $check_username_stmt->store_result();
 
-            header("Location: step2.php"); // directs to step2
-            exit();
+            if ($check_username_stmt->num_rows > 0) {
+                // username exists in db, show error message but stay in page
+                $error_message = "Username already exist. Please choose another.";
+            } else {
+                // email and username do not exist, insert into database
+                $stmt = $conn->prepare(
+                        "INSERT INTO users (username, email, password) VALUES (?, ?, ?)"
+                );
+
+                $hashed_password = password_hash($password, PASSWORD_DEFAULT); // Hash the password
+
+                $stmt->bind_param(
+                        "sss",
+                        $username,
+                        $email,
+                        $hashed_password
+                );
+
+                if ($stmt->execute()) {
+                    // Insertion successful, redirect to login page
+                    header("Location: login.php");
+                    exit();
+                } else {
+                    // Handle insertion error (e.g., display an error message)
+                    $error_message = "Error inserting data into the database.";
+                }
+
+                $stmt->close();
+            }
         }
     }
+
+    $check_email_stmt->close();
+    $check_username_stmt->close();
 }
 ?>
 
 <!DOCTYPE html>
 <html>
-<head>
-    <title>Registration - Step 1</title>
-    <link rel="stylesheet" href="css/styles.css">
-</head>
-<body>
-    <h2>Step 1: Personal Information</h2>
-    
-    <?php if (!empty($error_message)): ?>
-        <p style="color: red; text-align: center;"><?php echo htmlspecialchars(
-            $error_message
-        ); ?></p>
-    <?php endif; ?>
-    
-    <form method="POST" action="">
-        <label for="name">Enter your name:</label>
-        <input type="text" id="name" name="name" value="<?php echo isset($name)
-            ? htmlspecialchars($name)
-            : ""; ?>" required><br>
-        
-        <label for="email">Enter your email:</label>
-        <input type="email" id="email" name="email" value="<?php echo isset(
-            $email
-        )
-            ? htmlspecialchars($email)
-            : ""; ?>" required><br>
+    <head>
+        <title>Registration - Step 1</title>
+        <link rel="stylesheet" href="css/styles.css">
+        <?php include "navbar.php"; ?>
+    </head>
+    <body>
+        <h2>Register</h2>
 
-        <button class="green-btn" type="submit">Next</button>
-        <br>
-    </form>
-    
-    <p>Already have an account? <a href="login.php">Login here</a>.</p>
-</body>
+        <?php if (!empty($error_message)): ?>
+            <p style="color: red; text-align: center;"><?php
+                echo htmlspecialchars(
+                        $error_message
+                );
+                ?></p>
+        <?php endif; ?>
+
+        <form method="POST" action="">
+
+            <label for="username">Enter your username:</label>
+            <input type="text" id="username" name="username" 
+                   value="<?php
+                   echo htmlspecialchars(
+                           $username
+                   );
+                   ?>" required><br>
+            <label for="email">Enter your email:</label>
+            <input type="email" id="email" name="email" value="<?php
+            echo isset(
+                    $email
+            ) ? htmlspecialchars($email) : "";
+            ?>" required><br>
+
+
+            <label for="password">Enter your password:</label>
+            <input type="password" id="password" name="password" value="<?php
+            echo isset(
+                    $password
+            ) ? htmlspecialchars($password) : "";
+            ?>" required><br>
+
+            <br>
+            <button type="submit">Confirm Sign Up</button>
+            <br>
+        </form>
+
+        <p>Already have an account? <a href="login.php">Login here</a>.</p>
+    </body>
 </html>

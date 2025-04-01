@@ -11,7 +11,26 @@ body {
     margin: 0;
 }
 form {
-   /* background-color: #bdc3c7;*/
+
+}
+
+.back-button {
+    position: absolute;
+    top: 10px;
+    left: 20px;
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #333;
+}
+.item-details-container {
+    position: relative;
+    padding-top: 40px;
+}
+
+.main-form {
+    /* background-color: #bdc3c7;*/
     padding: 20px 30px;
     border-radius: 8px;
     align-items: center;
@@ -19,6 +38,7 @@ form {
     text-align-all: center;
     box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     width: 350px;
+
 }
 label {
     display: block;
@@ -54,7 +74,7 @@ input {
 .fill-btn {
     width: 48%;             /* Slightly less than 50% to allow for spacing */
     padding: 10px;
-    background-color: #2d3436; 
+    background-color: #2d3436;
     color: #ecf0f1;
     border: 1px solid;
     border-color: #2d3436;
@@ -69,6 +89,7 @@ h1 {
     justify-content: center;
     text-align-all: center;
     padding-left: 75px;
+    text-align: center;
 }
 
 h2 {
@@ -89,7 +110,7 @@ h2 {
 button {
     width: 100%;             /* Slightly less than 50% to allow for spacing */
     padding: 10px;
-    background-color: #2d3436; 
+    background-color: #2d3436;
     color: #ecf0f1;
     border: 1px solid;
     border-color: #2d3436;
@@ -105,4 +126,34 @@ p{
 
 .signup {
     color: #ecf0f1;
+}
+
+.reviews-section {
+    margin-top: 30px;
+    padding: 20px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+}
+.review-card {
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 15px;
+    margin-bottom: 15px;
+    background-color: white;
+}
+.stars {
+    color: #ffd700;
+    font-size: 18px;
+    margin-bottom: 10px;
+}
+.reviewer-name {
+    font-weight: bold;
+    color: #444;
+}
+.review-content {
+    margin-top: 10px;
+}
+.avg-rating {
+    font-size: 20px;
+    margin-bottom: 15px;
 }

@@ -98,7 +98,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 ?></p>
         <?php endif; ?>
 
-        <form method="POST" action="">
+        <form method="POST" action="" class="main-form">
 
             <label for="username">Enter your username:</label>
             <input type="text" id="username" name="username" 

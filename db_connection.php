@@ -2,7 +2,7 @@
 // db_connection.php
 $servername = "localhost"; // Replace with your server name
 $username = "root"; // Replace with your database username
-$password = ""; // Replace with your database password
+$password = "2025Spring"; // Replace with your database password
 $dbname = "renttostudents"; // Replace with your database name
 
 // Create connection

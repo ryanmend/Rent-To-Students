@@ -9,11 +9,6 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-$servername = ""; // Remove these, they are not needed as db_connection.php handles it
-$username = "";
-$password = "";
-$dbname = "";
-
 // Initialize variables
 $item_name = $description = $category = $rental_price = "";
 $isEdit = false;
@@ -60,7 +55,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["save_item"])) {
                 $stmt = $conn->prepare(
                     "UPDATE items SET item_name = ?, description = ?, category = ?, rental_price = ?, lessor_id = ? WHERE id = ?"
                 );
-                $stmt->bind_param("ssssii", $item_name, $description, $category, $rental_price, $lessor_id, $itemId);
+                $stmt->bind_param("sssdii", $item_name, $description, $category, $rental_price, $lessor_id, $itemId);
 
                 if ($stmt->execute()) {
                     echo "<p>Item updated successfully!</p>";
@@ -70,22 +65,26 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["save_item"])) {
 
 
             } else {
-                // Add new item
+                // Add new item - don't specify an ID to let auto-increment work
                 $stmt = $conn->prepare(
                     "INSERT INTO items (item_name, description, category, rental_price, lessor_id) VALUES (?, ?, ?, ?, ?)"
                 );
-                $stmt->bind_param("ssssi", $item_name, $description, $category, $rental_price, $lessor_id);
+                $stmt->bind_param("sssdi", $item_name, $description, $category, $rental_price, $lessor_id);
 
                 if ($stmt->execute()) {
                     echo "<p>Item added successfully!</p>";
+                    
+                    // Get the newly inserted item's ID if needed
+                    $newItemId = $conn->insert_id;
                 } else {
                     $errorMessage = "Error adding item: " . $stmt->error;
                 }
             }
 
-
-            header("Location: profile.php"); // Redirect after success
-            exit();
+            if (empty($errorMessage)) {
+                header("Location: profile.php"); // Redirect after success
+                exit();
+            }
 
         } catch (Exception $e) {
             $errorMessage = "Error saving item: " . $e->getMessage();
@@ -101,7 +100,7 @@ if (
 ) {
     $itemId = (int)$_GET["item_id"]; // Cast to integer for safety
 
-    $stmt = $conn->prepare("SELECT * FROM items WHERE id = ?");
+    $stmt = $conn->prepare("SELECT * FROM items WHERE item_id = ?");
     $stmt->bind_param("i", $itemId);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -118,7 +117,7 @@ if (
     }
 }
 
-// Deleting a item (No changes needed here)
+// Deleting a item
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["delete_item"])) {
     $itemId = (int) $_POST["item_id"];
 
@@ -143,7 +142,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["delete_item"])) {
     }
 }
 
-// Complete a item (No changes needed here)
+// Complete a item
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["complete_item"])) {
     $itemId = (int) $_POST["item_id"];
 
@@ -179,14 +178,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["complete_item"])) {
 </head>
 <body>
 
-<h1>Item Management</h1>
+<h1>Add Item For Rent</h1>
 
 <?php if ($errorMessage != ""): ?>
     <div style="color: red;"><?php echo $errorMessage; ?></div>
 <?php endif; ?>
 
 
-<form method="post" action="" <?php if($isEdit) echo "name='edit_item_form'" ?>>
+<form method="post" action="" class="main-form" <?php if($isEdit) echo "name='edit_item_form'" ?>>
     <label for="item_name">Item Name:</label>
     <input type="text" id="item_name" name="item_name" value="<?php echo htmlspecialchars($item_name); ?>"><br><br>
 
@@ -194,7 +193,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["complete_item"])) {
     <textarea id="description" name="description"><?php echo htmlspecialchars($description); ?></textarea><br><br>
 
     <label for="category">Category:</label>
-    <input type="text" id="category" name="category" value="<?php echo htmlspecialchars($category); ?>"><br><br>
+    <select id="category" name="category">
+        <option value="Electronics" <?php echo ($category == 'Electronics') ? 'selected' : ''; ?>>Electronics</option>
+        <option value="Tools" <?php echo ($category == 'Tools') ? 'selected' : ''; ?>>Tools</option>
+        <option value="Sports Equipment" <?php echo ($category == 'Sports Equipment') ? 'selected' : ''; ?>>Sports Equipment</option>
+        <option value="Musical Instruments" <?php echo ($category == 'Musical Instruments') ? 'selected' : ''; ?>>Musical Instruments</option>
+        <option value="Other" <?php echo ($category == 'Other') ? 'selected' : ''; ?>>Other</option>
+    </select><br><br>
 
     <label for="rental_price">Rental Price:</label>
     <input type="number" id="rental_price" name="rental_price" step="0.01" min="0" value="<?php echo htmlspecialchars($rental_price); ?>"><br><br>

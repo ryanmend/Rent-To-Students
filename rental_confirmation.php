@@ -1,50 +1,92 @@
 <?php
 require_once "db_connection.php";
-include "navbar.php"; 
-// Check if the form was submitted
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $item_id = $_POST['item_id'];
-    $rental_hours = $_POST['rental_hours'];
 
-    // Fetch item details from database
-    $sql = "SELECT rental_price FROM items WHERE item_id = ?";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("i", $item_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
+// Start or resume the session
+session_start();
 
-    if ($result) {
-        $row = $result->fetch_assoc();
-        $rental_price_per_hour = $row['rental_price'];
-
-        // Calculate total cost
-        $total_cost = $rental_hours * $rental_price_per_hour;
-
-        echo "<h2>Rental Confirmation</h2>";
-        echo "<p>Item ID: " . htmlspecialchars($item_id) . "</p>";
-        echo "<p>Rental Hours: " . htmlspecialchars($rental_hours) . "</p>";
-        echo "<p>Total Cost: $" . number_format($total_cost, 2) . "</p>";
-
-        // Payment form (replace with your actual payment integration)
-        echo "<form method='POST' action='payment_processing.php'>";
-        echo "<input type='hidden' name='item_id' value='" . htmlspecialchars($item_id) . "'/>";
-        echo "<input type='hidden' name='rental_hours' value='" . htmlspecialchars($rental_hours) . "'/>";
-        echo "<input type='hidden' name='total_cost' value='" . number_format($total_cost, 2) . "'/>";
-        echo "<button type='submit'>Proceed to Payment</button>";
-        echo "</form>";
-
-    } else {
-        echo "Error fetching item details.";
-    }
-
-    $stmt->close();
-    $result->free();
-} else {
-    
-    header("Location: index.php"); 
+// Check if the user is logged in
+if (!isset($_SESSION['user_id'])) {
+    header("Location: login.php");
     exit;
 }
 
-$conn->close();
+$user_id = $_SESSION['user_id'];
+$errorMessage = "";
+$successMessage = "";
+
+// Check if item_name is provided
+if (!isset($_GET['item_name']) || empty($_GET['item_name'])) {
+    $errorMessage = "No item specified.";
+}
+
+// Process rental confirmation (now without updating availability)
+if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["confirm_rental"])) {
+    $item_name = $_POST['item_name'];
+    
+    // Verify the item belongs to the current user
+    $stmt = $conn->prepare("SELECT item_id FROM items WHERE item_name = ? AND renter_id = ?");
+    $stmt->bind_param("si", $item_name, $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($result->num_rows > 0) {
+        // Confirmation successful, but no changes to the database
+        $successMessage = "Item receive confirmed.";
+    } else {
+        $errorMessage = "You are not authorized to confirm this rental.";
+    }
+}
+
+// Fetch item details if item_name is provided
+if (isset($_GET['item_name']) && empty($errorMessage)) {
+    $item_name = $_GET['item_name'];
+    
+    $stmt = $conn->prepare("SELECT i.item_name, i.description, u.username AS lessor_name 
+                            FROM items i
+                            JOIN users u ON i.lessor_id = u.user_id
+                            WHERE i.item_name = ? AND i.renter_id = ?");
+    $stmt->bind_param("si", $item_name, $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($result->num_rows === 0) {
+        $errorMessage = "Invalid item or unauthorized access.";
+    }
+}
 ?>
-<link rel="stylesheet" href="css/styles.css">
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Rental Confirmation</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <h1>Rental Confirmation</h1>
+
+    <?php if (!empty($errorMessage)): ?>
+        <div style="color: red;"><?php echo htmlspecialchars($errorMessage); ?></div>
+        <p><a href="profile.php">Back to Profile</a></p>
+    <?php elseif (!empty($successMessage)): ?>
+        <div style="color: green;"><?php echo htmlspecialchars($successMessage); ?></div>
+        <p><a href="profile.php">Back to Profile</a></p>
+    <?php else: ?>
+        <div>
+            <h2>Rental Details</h2>
+            <?php 
+            $item_details = $result->fetch_assoc();
+            ?>
+            <p>Item: <?php echo htmlspecialchars($item_details['item_name']); ?></p>
+            <p>Description: <?php echo htmlspecialchars($item_details['description']); ?></p>
+            <p>Lessor: <?php echo htmlspecialchars($item_details['lessor_name']); ?></p>
+
+            <form method="post">
+                <input type="hidden" name="item_name" value="<?php echo htmlspecialchars($_GET['item_name']); ?>">
+                <p>Have you received this item?</p>
+                <button type="submit" name="confirm_rental">Yes, I Have Received The Item</button>
+            </form>
+            <p><a href="profile.php">Cancel</a></p>
+        </div>
+    <?php endif; ?>
+</body>
+</html>

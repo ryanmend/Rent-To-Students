@@ -1,19 +1,14 @@
 <?php
-
 //db_connection.php
 require_once "db_connection.php";
 session_start();
-
 // check if the user is logged in ie. session data exist
 if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit;
 }
   
-
-
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
     <head>
@@ -22,82 +17,56 @@ if (!isset($_SESSION['user_id'])) {
         <link rel="stylesheet" href="css/styles.css">
     </head>
 <body>
-
 <?php
 require_once "db_connection.php";
 include "navbar.php";
-
 $itemId = $name = $priority = $imagePath = "";
 $isEdit = false;
-
 if ($isEdit) {
     echo "<h2>Edit Item</h2>";
 }
 ?>
-
-
 <div class ="main">
 <?php
-$result = $conn->query("SELECT * FROM items");
+// Modified query to only select items with availability = 0
+$result = $conn->query("SELECT * FROM items WHERE availability = 0");
 echo "<h1>Rent-To-Students</h1>";
-
 if ($result->num_rows > 0) {
     echo "<div class='item-list'>";
-
     while ($item = $result->fetch_assoc()) {
-
         // Create a item row
-
-        $item_name = htmlspecialchars($item["item_name"]); // Added this line
+        $item_name = htmlspecialchars($item["item_name"]); 
         $description = htmlspecialchars($item["description"]);
-        $category = htmlspecialchars($item["category"]);  //Added this line
-        $rental_price = htmlspecialchars($item["rental_price"]); //Added this line
-
+        $category = htmlspecialchars($item["category"]); 
+        $rental_price = htmlspecialchars($item["rental_price"]); 
         echo "<div class='item-item'>";
-
         // Item content display
-        echo "<p><strong>Item Name:</strong> " . $item_name . "</p>"; // Display item name
-        echo "<p><strong>Description:</strong> " . $description . "</p>";
-        echo "<p><strong>Category:</strong> " . $category . "</p>";  //Display category
-        echo "<p><strong>Rental Price:</strong> $" . $rental_price . "/hr</p>"; // Display rental price
-
-
+        echo "<p><strong>" . $item_name . "</strong></p>"; 
+        echo "<p><strong>Rental Price:</strong> $" . $rental_price . "/hr</p>"; 
+        
         // Action buttons
         echo "<div class='item-actions'>";
         
-         // Rent button
-        echo "<form method='POST' action='rental_confirmation.php'>";
+        // View Item button
+        echo "<form method='POST' action='item_page.php'>";
         echo "<input type='hidden' name='item_id' value='" . htmlspecialchars($item["item_id"]) . "'/>";
-        echo "<label for='hours'>Rental Hours:</label>";
-        echo "<select id='hours' name='rental_hours'>";
-        for ($i = 1; $i <= 24; $i++) { // Allow up to 24 hours
-            echo "<option value='" . $i . "'>" . $i . "</option>";
-        }
-        echo "</select>";
-        echo "<button type='submit' class='green-btn'>Rent</button>";
+        echo "<button type='submit' class='blue-btn'>View Item</button>";
         echo "</form>";
-
-      
-
-        // Mark as returned button
-        echo "<form method='GET' action='add_item.php'>";
-        echo "<input type='hidden' name='item_id' value='" . htmlspecialchars($item["item_id"]) . "'>"; // Corrected: Use $item['item_id']
-        echo "<button type='submit' class='blue-btn' name='completed_item'>Mark as Returned</button>";
-        echo "</form>";
-
        
-
+       
         echo "</div>"; // End item-actions
-
         echo "</div>"; // End item-item
-
     }
-
-    if ($result->num_rows < 1) {
-        echo "<p>No items found.</p>";
-    }
+    echo "</div>"; // Close item-list div
+} 
+if ($result->num_rows < 1) {
+    echo "<p>No items found.</p>";
+    echo "<div class='add-item-container'>";
+    echo "<form method='GET' action='add_item.php'>";
+    echo "<button type='submit' class='blue-btn'>Add Item for Rent</button>";
+    echo "</form>";
+    echo "</div>";
 }
-
 $result->free();
 $conn->close();
 ?>

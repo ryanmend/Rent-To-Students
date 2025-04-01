@@ -45,7 +45,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Welcome To Rent-To-Students !!</title>
-    <?php include "navbar.php"; ?>
+    
    <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
@@ -57,7 +57,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         ); ?></p>
     <?php endif; ?>
 
-    <form method="POST" action="" autocomplete="off">
+    <form method="POST" action="" autocomplete="off" class="main-form">
         <label for="email">Enter School Email</label>
         <input type="text" id="email" name="email" required>
 
